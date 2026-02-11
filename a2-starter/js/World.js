@@ -44,13 +44,73 @@ export class World {
     });
     this.addEntityToWorld(this.npc);
 
-    this.obstacle = new RoundEntity({
-      radius: 5,
-    });
-    this.addEntityToWorld(this.obstacle);
+    //this.obstacle = new RoundEntity({
+      //radius: 2,
+    //});
+
+    
+    
+    this.createObstacle(11);
+
+    //this.addEntityToWorld(this.obstacle);
 
   }
+  // create obstacle
+  createObstacle(n) {
+  const margin = 1.0;          // minimum space from map border
+  const MAX_TRIES = 200;
 
+  for (let i = 0; i < n; i++) {
+
+    const radius = Math.random() * 2 + 0.5;
+    let placed = false;
+
+    for (let tries = 0; tries < MAX_TRIES; tries++) {
+
+      // 🔒 radius + margin keeps obstacle fully inside map
+      const x = Math.random() * (
+        (this.map.maxX - this.map.minX) - 2 * (radius + margin)
+      ) + this.map.minX + radius + margin;
+
+      const z = Math.random() * (
+        (this.map.maxZ - this.map.minZ) - 2 * (radius + margin)
+      ) + this.map.minZ + radius + margin;
+
+      const position = new THREE.Vector3(x, 0, z);
+
+      // OPTIONAL: prevent overlap with existing round obstacles
+      let overlap = false;
+      for (let e of this.entities) {
+        if (e instanceof RoundEntity) {
+          const d = position.distanceTo(e.position);
+          if (d < radius + e.radius + 0.5) {
+            overlap = true;
+            break;
+          }
+        }
+      }
+
+      if (!overlap) {
+        const obstacle = new RoundEntity({
+          radius,
+          position,
+          color: i % 2 === 0 ? 'red' : 'purple',
+        });
+
+        this.addEntityToWorld(obstacle);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      console.warn(`Obstacle ${i} could not be placed safely`);
+    }
+  }
+}
+
+  
+    
   // Add an entity to the world
   addEntityToWorld(entity) {
     this.scene.add(entity.mesh);
@@ -66,7 +126,7 @@ export class World {
     let wander = SteeringBehaviours.wander(this.npc, 5, 2, 0.3);
     steer.add(wander);
 
-    let avoid = CollisionAvoidSteering.round(this.npc, this.obstacle, 2, 2, this.debug);
+    let avoid = CollisionAvoidSteering.whiskerAvoid(this.npc, this.entities, 2, 2, this.debug);
     steer.add(avoid);
     
     this.npc.applyForce(steer);

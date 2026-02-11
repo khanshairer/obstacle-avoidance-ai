@@ -37,7 +37,8 @@ export class DebugVisuals {
   }
 
   // Show a line with reference key at given start and end
-  showLine(key, start, end, color = 0x00000) {
+  // this color has been changed to red for better visibility, you can change it back to the original color if you want
+  showLine(key, start, end, color = 'red') {
     // if does not exist, create it
     // update its position
     let obj = this.debugObjects.get(key);
