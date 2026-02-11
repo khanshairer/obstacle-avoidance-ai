@@ -50,7 +50,7 @@ export class World {
 
     
     
-    this.createObstacle(11);
+    this.createObstacle(15);
 
     //this.addEntityToWorld(this.obstacle);
 
@@ -67,7 +67,6 @@ export class World {
 
     for (let tries = 0; tries < MAX_TRIES; tries++) {
 
-      // 🔒 radius + margin keeps obstacle fully inside map
       const x = Math.random() * (
         (this.map.maxX - this.map.minX) - 2 * (radius + margin)
       ) + this.map.minX + radius + margin;
@@ -78,7 +77,7 @@ export class World {
 
       const position = new THREE.Vector3(x, 0, z);
 
-      // OPTIONAL: prevent overlap with existing round obstacles
+      //prevent overlap with existing round obstacles
       let overlap = false;
       for (let e of this.entities) {
         if (e instanceof RoundEntity) {
@@ -103,9 +102,7 @@ export class World {
       }
     }
 
-    if (!placed) {
-      console.warn(`Obstacle ${i} could not be placed safely`);
-    }
+    
   }
 }
 
