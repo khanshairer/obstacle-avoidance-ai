@@ -73,26 +73,34 @@ export class CollisionAvoidSteering {
 
     return target;
   }
-
+  
+  // Produces a steering behaviour to avoid all the round obstacles in the  scene using the whisker method (three rays: forward, left, right) and averages the resulting steering forces for smoother avoidance
+  // One Steering Behaviour that checks all obstacles and returns a single steer vector that combines the avoidance forces from all colliding whiskers (if any)
   static whiskerAvoid(npc, entityList, lookAhead, howFar, debug) {
+    // increase the lookahead of the side whisker based on npc speed, so that they can detect obstacles sooner when moving faster (prevents slipping inside)
+    //otherwise for full speed npc, the side whiskers are too short to detect obstacles in time, causing it to collide and get stuck inside
+    const speed = npc.velocity.length();
     
 
     for(let entity of entityList) {
       if (entity === npc) continue;
-
-      let steer = CollisionAvoidSteering.round3(npc, entity, lookAhead, howFar, debug);
-      if (steer.length() > 0) return steer;
+      const effectiveLookAhead = Math.max(lookAhead, 0.6 + speed * 0.35);
+      let steer = CollisionAvoidSteering.round3(npc, entity,lookAhead, effectiveLookAhead, howFar, debug);
+      if (steer.length() > 0) return {steer:steer, collided: true};
     }
-      return new THREE.Vector3(); 
+      return {steer:new THREE.Vector3(), collided: false};
 
 }
 
-//demo 
-static round3(entity, obstacle, lookAhead, howFar, debug) {
+// A version of round avoidance that uses three whiskers (forward, left, right) to check for collisions and averages the resulting steering forces for smoother avoidance
+// it keeps the frontLookAhead constant and increase the side lookahead based on the npc speeed 
+// takes in the npc, the obstacle, the lookahead distance for the front whisker, the lookahead distance for the side whiskers, how far to steer away, and the debug object for visualization
+// return a steer vector that combines the avoidance forces from all colliding whiskers (if any)
+static round3(entity, obstacle,frontlookAhead, lookAhead, howFar, debug) {
 
   let steer = new THREE.Vector3();
 
-  // Safety: if obstacle isn't round-like, do nothing
+  // check if obstacle is circle
   if (!obstacle || typeof obstacle.radius !== "number" || !obstacle.position) {
     return steer;
   }
@@ -114,15 +122,15 @@ static round3(entity, obstacle, lookAhead, howFar, debug) {
 
   // forward
   const predictedLocation = entity.position.clone().add(
-    entity.velocity.clone().multiplyScalar(lookAhead)
+    entity.velocity.clone().multiplyScalar(frontlookAhead)
   );
 
-  // LEFT (30°)
+  // LEFT (30°) whisker is created by rotating velocity vector by +30 degrees around Y axis
   const predictedLocation2 = entity.position.clone().add(
     entity.velocity.clone().setLength(lookAhead).applyAxisAngle(axis, angle)
   );
 
-  // RIGHT (30°)
+  // RIGHT (30°) whisker is created by rotating velocity vector by -30 degrees around Y axis
   const predictedLocation3 = entity.position.clone().add(
     entity.velocity.clone().setLength(lookAhead).applyAxisAngle(axis, -angle)
   );
@@ -132,17 +140,17 @@ static round3(entity, obstacle, lookAhead, howFar, debug) {
   const cp2 = CollisionAvoidSteering.getClosestPointOnSegment(entity.position, predictedLocation2, obstacle.position);
   const cp3 = CollisionAvoidSteering.getClosestPointOnSegment(entity.position, predictedLocation3, obstacle.position);
 
-  // collision checks (use combined radius!)
+  // collision checks for each whisker (compares closest point to obstacle center against combined radius)
   const isCollision  = cp1.distanceTo(obstacle.position) <= combinedR;
   const isCollision2 = cp2.distanceTo(obstacle.position) <= combinedR;
   const isCollision3 = cp3.distanceTo(obstacle.position) <= combinedR;
 
-  // whisker colors (existing whiskers recolor)
-  debug.showLine("predictedLocation",  entity.position, predictedLocation,  isCollision  ? "yellow" : "red");
-  debug.showLine("predictedLocation2", entity.position, predictedLocation2, isCollision2 ? "yellow" : "red");
-  debug.showLine("predictedLocation3", entity.position, predictedLocation3, isCollision3 ? "yellow" : "red");
+  // whisker colors turns yellow on collision, red otherwise
+  debug.showLine("predictedLocation",  entity.position, predictedLocation,  isCollision  ? "red" : "yellow");
+  debug.showLine("predictedLocation2", entity.position, predictedLocation2, isCollision2 ? "red" : "yellow");
+  debug.showLine("predictedLocation3", entity.position, predictedLocation3, isCollision3 ? "red" : "yellow");
 
-  // If nothing collides, no steer
+  // If nothing collides, no steer ...go towards target as normal
   if (!isCollision && !isCollision2 && !isCollision3) {
     return steer;
   }
@@ -199,6 +207,8 @@ static round3(entity, obstacle, lookAhead, howFar, debug) {
 
   // Produces a steering behaviour to 
   // avoid a round obstacle
+  //another version that uses three "whiskers" (forward, left, right) to check for collisions and averages the resulting steering forces for smoother avoidance
+  // first_version
   static round2(entity, obstacle, lookAhead, howFar, debug) {
 
     let steer = new THREE.Vector3();

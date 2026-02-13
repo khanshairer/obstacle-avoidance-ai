@@ -37,6 +37,11 @@ export function createLight(scene) {
   const light = new THREE.DirectionalLight(0xffffff, 2);
   light.position.set(0, 5, 5);
   scene.add(light);
+ 
+  //ambient light 
+  // Ambient light (fills in shadows)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+  scene.add(ambientLight);
 }
 
 // Shows axesHelper, gridHelper, and OrbitControls
@@ -52,4 +57,29 @@ export function showHelpers(scene, camera, renderer, levelMap) {
   // Add our grid helper so we can see the floor
   const gridHelper = new THREE.GridHelper(levelMap.width, levelMap.depth);
   scene.add(gridHelper);
+
+    // -------- Road Texture Code  --------
+  const textureLoader = new THREE.TextureLoader();
+  const roadTexture = textureLoader.load('./roadTexture.jpg');
+
+  // Repeat texture so it tiles nicely
+  roadTexture.wrapS = THREE.RepeatWrapping;
+  roadTexture.wrapT = THREE.RepeatWrapping;
+  roadTexture.repeat.set(10, 10); // adjust tiling amount
+
+  const planeGeometry = new THREE.PlaneGeometry(
+    levelMap.width,
+    levelMap.depth
+  );
+
+  const planeMaterial = new THREE.MeshStandardMaterial({
+    map: roadTexture
+  });
+
+  const road = new THREE.Mesh(planeGeometry, planeMaterial);
+
+  road.rotation.x = -Math.PI / 2; // make it horizontal
+  road.position.y = 0;            // ground level
+
+  scene.add(road);
 }

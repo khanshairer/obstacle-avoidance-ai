@@ -8,6 +8,8 @@ import { InputHandler } from './input/InputHandler.js';
 import { SteeringBehaviours } from './ai/steering/SteeringBehaviours.js';
 import { DebugVisuals } from './debug/DebugVisuals.js';
 import { CollisionAvoidSteering } from './ai/steering/CollisionAvoidSteering.js';
+import { BulletEntity } from './entities/BulletEntity.js';
+
 
 /**
  * World class holds all information about our game's world
@@ -27,6 +29,10 @@ export class World {
     this.inputHandler = new InputHandler(this.camera);
 
     this.entities = [];
+    
+    this.fireCooldown = 0.35; // seconds between shots
+    this.fireTimer = 0;
+
   }
 
   // Initialize objects in our world
@@ -40,7 +46,7 @@ export class World {
     this.npc = new DynamicEntity({ 
       position: new THREE.Vector3(this.map.minX, 0, 0),
       velocity: new THREE.Vector3(10, 0, 0),
-      color: 'blue'
+      color: 'darkorange',
     });
     this.addEntityToWorld(this.npc);
 
@@ -55,14 +61,15 @@ export class World {
     //this.addEntityToWorld(this.obstacle);
 
   }
-  // create obstacle
+  // create n round obstacles at random positions on the map, ensuring they don't overlap with each other or spawn too close to the edges of the map
   createObstacle(n) {
   const margin = 1.0;          // minimum space from map border
+                              // so that no object goes out of the map 
   const MAX_TRIES = 200;
 
   for (let i = 0; i < n; i++) {
 
-    const radius = Math.random() * 2 + 0.5;
+    const radius = Math.random() * 1.5 + 0.9;
     let placed = false;
 
     for (let tries = 0; tries < MAX_TRIES; tries++) {
@@ -93,7 +100,7 @@ export class World {
         const obstacle = new RoundEntity({
           radius,
           position,
-          color: i % 2 === 0 ? 'red' : 'purple',
+          color: i % 2 === 0 ? 'red' : 'white',
         });
 
         this.addEntityToWorld(obstacle);
@@ -106,7 +113,36 @@ export class World {
   }
 }
 
-  
+
+
+ 
+// DynamicEntity subclass that represents a simple NPC that wanders around and avoids obstacles using the whisker method
+getNpcForward() {
+  const v = this.npc.velocity.clone();
+  if (v.lengthSq() < 1e-6) return new THREE.Vector3(1, 0, 0); 
+  v.y = 0;
+  return v.normalize();
+}
+
+// npc shoots a bullet in the direction it's currently moving, with a cooldown between shots
+npcFire() {
+  const dir = this.getNpcForward();
+
+  // spawn slightly in front of npc so it doesn’t collide immediately
+  const spawnPos = this.npc.position.clone().add(dir.clone().multiplyScalar(1.2));
+  spawnPos.y = 0.3;
+
+  const bullet = new BulletEntity({
+    position: spawnPos,
+    direction: dir,
+    speed: 40,
+    ttl: 2.0,
+  });
+   
+  this.addEntityToWorld(bullet);
+}
+
+
     
   // Add an entity to the world
   addEntityToWorld(entity) {
@@ -124,15 +160,35 @@ export class World {
     steer.add(wander);
 
     let avoid = CollisionAvoidSteering.whiskerAvoid(this.npc, this.entities, 2, 2, this.debug);
-    steer.add(avoid);
+    steer.add(avoid.steer);
     
     this.npc.applyForce(steer);
+    
+    //firing 
+    this.fireTimer += dt;
 
+    // Example: fire continuously
+    if (this.fireTimer >= this.fireCooldown && avoid.collided === true) {
+    this.fireTimer = 0;
+    this.npcFire();
+    }
+
+    
 
     for (let e of this.entities) {
       if (e.update)
         e.update(dt, this.map);
     }
+
+    // Remove dead entities
+    for (let i = this.entities.length - 1; i >= 0; i--) {
+  const e = this.entities[i];
+  if (e.dead) {
+    this.scene.remove(e.mesh);
+    this.entities.splice(i, 1);
+  }
+}
+
   }
 
   // Render our world
